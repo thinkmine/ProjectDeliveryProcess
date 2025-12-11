@@ -3,6 +3,485 @@
 A comprehensive, end-to-end guide to our project delivery process. This repository documents the methodologies, standards, workflows, and best practices that support consistent, repeatable, and high-quality delivery across all phases of a project—from initial discovery and requirements analysis to development, testing, release management, and post-deployment operations. Designed as a living resource, it provides templates, checklists, governance models, and reference architectures to ensure teams can plan, execute, and deliver with clarity and alignment.
 
 
+# Project Delivery Guide – GitHub to Azure (End-to-End)
+
+This guide explains **how we deliver solutions using GitHub into Azure**, from the first conversation with a stakeholder to post-deployment operations. It’s designed as a **repeatable blueprint** for all projects.
+
+---
+
+## 0. Core Principles
+
+Before we dive into steps, these principles apply everywhere:
+
+1. **Everything-as-Code**
+
+   * Application code
+   * Infrastructure (Bicep/Terraform/ARM)
+   * CI/CD workflows (GitHub Actions YAML)
+   * Configuration (JSON/YAML settings)
+2. **GitHub as the Source of Truth**
+
+   * No manual changes in Azure that aren’t also captured in Git.
+3. **Environment Parity**
+
+   * dev → test → prod follow the same pattern, just with different scale/config.
+4. **Security & Governance First**
+
+   * Least privilege, OIDC to Azure, secrets in GitHub Encrypted Secrets / Key Vault.
+5. **Automated Quality Gates**
+
+   * PR checks, tests, security scans, policy checks.
+
+---
+
+## 1. Repository Foundations
+
+### 1.1. Create / Structure the Repo
+
+**Step 1 – Create the GitHub repo**
+
+* Name: `org-solution-name` (e.g., `contoso-project-tracker`).
+* Make it private by default.
+* Initialize with a README.
+
+**Step 2 – Create base folders**
+
+```text
+/.
+├─ docs/           # Methodologies, standards, runbooks
+├─ src/            # Application code (API, UI, Functions, etc.)
+├─ infra/          # Azure IaC (Bicep/Terraform)
+├─ .github/
+│  └─ workflows/   # GitHub Actions
+└─ .devcontainer/  # Optional: GitHub Codespaces dev config
+```
+
+**Step 3 – Branching strategy**
+
+* `main` – production-ready, tagged releases.
+* `develop` – integration branch for upcoming release (optional, if you prefer trunk you can skip).
+* `feature/*` – short-lived branches for work items.
+* `hotfix/*` – production fixes.
+
+Configure **branch protection** on `main` (and `develop` if used):
+
+* Require PRs
+* Require status checks to pass (build, tests, lint)
+* Require at least 1–2 reviewers
+* No direct pushes
+
+---
+
+## 2. Discovery & Requirements in GitHub
+
+### 2.1. Capture Work with Issues
+
+**Step 1 – Define issue templates**
+
+In `.github/ISSUE_TEMPLATE/` create templates like:
+
+* `feature_request.md`
+* `bug_report.md`
+* `architecture_change.md`
+
+Each template includes:
+
+* Problem statement
+* Business value
+* Acceptance criteria
+* Dependencies
+
+**Step 2 – Labels**
+
+Define labels such as:
+
+* `phase:discovery`, `phase:design`, `phase:build`, `phase:test`, `phase:release`, `phase:ops`
+* `type:feature`, `type:bug`, `type:tech-debt`
+* `priority:high|medium|low`
+
+**Step 3 – Project board**
+
+Use a **GitHub Projects** board (e.g., “Delivery – Project Tracker”) with columns:
+
+* Backlog
+* Discovery
+* Design
+* In Development
+* In Testing
+* Ready for Release
+* Done
+
+Link issues to this board for traceability.
+
+---
+
+## 3. Architecture & Design
+
+### 3.1. Document the Architecture in the Repo
+
+**Step 1 – Create architecture docs**
+
+In `docs/`:
+
+* `02-architecture-overview.md`
+* `03-reference-architectures.md`
+* `adr/` for **Architecture Decision Records**
+
+Each includes:
+
+* Overall diagram (UI → APIM → Functions / App Service → Azure SQL / NoSQL)
+* Non-functional requirements (availability, security, performance)
+* Chosen Azure services and why
+
+**Step 2 – Architecture Decision Records (ADRs)**
+
+For significant decisions (e.g., “Use Azure Functions vs App Service”), create ADRs:
+
+* Context
+* Decision
+* Alternatives
+* Consequences
+
+This gives future teams a paper trail of why things are how they are.
+
+### 3.2. Define Azure Environments
+
+Typical mapping:
+
+* `dev` – for feature testing
+* `test` / `qa` – for integration/UAT
+* `prod` – live users
+
+Define:
+
+* Azure subscriptions or resource groups per environment
+* Naming conventions, e.g.:
+
+  * `rg-solution-dev`, `rg-solution-test`, `rg-solution-prod`
+  * `func-solution-dev`, `sql-solution-dev`, etc.
+
+Document this in `docs/04-environments-and-naming.md`.
+
+---
+
+## 4. Implementation – Code & Infrastructure
+
+### 4.1. Infrastructure as Code (IaC)
+
+**Step 1 – Define infrastructure in `infra/`**
+
+Example with Bicep:
+
+```text
+infra/
+├─ main.bicep
+└─ parameters/
+   ├─ dev.json
+   ├─ test.json
+   └─ prod.json
+```
+
+`main.bicep` provisions:
+
+* Resource group (if not already)
+* Storage account
+* Azure Function App or Web App
+* Azure SQL / Cosmos DB
+* API Management
+* Application Insights
+* Key Vault (for secrets/config)
+
+**Step 2 – Parameterize by environment**
+
+Each `*.json` file sets:
+
+* Resource names (with environment suffix)
+* SKU tiers (Basic in dev, Premium in prod)
+* Connection strings names
+
+**Step 3 – Validate locally**
+
+Use Azure CLI / Bicep:
+
+```bash
+az deployment group what-if ...
+```
+
+### 4.2. Application Code (`src/`)
+
+Typical structure:
+
+```text
+src/
+├─ api/              # Functions or Web API
+├─ ui/               # HTML / SPA / Bootstrap UI
+└─ shared/           # shared models, DTOs, utilities
+```
+
+**Guidelines:**
+
+* Keep a **clear separation of concerns** (controllers/functions vs services vs data access).
+* Make configuration external (app settings, Key Vault, environment variables).
+* Add unit tests in `tests/` and wire them to CI.
+
+---
+
+## 5. Testing & Quality – GitHub Actions
+
+### 5.1. Define Quality Gates
+
+For each PR into `develop` / `main`:
+
+* Build passes
+* Unit tests pass
+* (Optional) Integration tests
+* Linting / static analysis
+* Security scanning (CodeQL, Dependabot alerts)
+
+### 5.2. Create CI Workflow
+
+In `.github/workflows/ci.yml`:
+
+**High-level steps:**
+
+1. Trigger on `pull_request` and `push` to `develop` / `main`.
+2. Check out code.
+3. Set up language runtime (.NET, Node, Python, etc.).
+4. Restore dependencies.
+5. Build solution.
+6. Run tests.
+7. (Optional) Run linters, static analysis, CodeQL.
+
+This workflow becomes a **required check** before merge.
+
+---
+
+## 6. Release Management – GitHub to Azure
+
+### 6.1. Connect GitHub to Azure (Securely)
+
+**Step 1 – Use OIDC (recommended)**
+Set up a **federated credential** from GitHub to Azure:
+
+* In Azure: create a **user-assigned managed identity** or a Service Principal.
+* In GitHub: configure **OpenID Connect** using a GitHub environment (e.g., `dev`, `prod`) or repo-level trusted issuer.
+* Grant the SP/MSI required roles (e.g., `Contributor` or more granular roles on the resource group).
+
+This avoids storing long-lived client secrets in GitHub.
+
+### 6.2. Define Environments in GitHub
+
+In repo settings → **Environments**:
+
+* Create `dev`, `test`, `prod`.
+* For `prod`, enable:
+
+  * Required reviewers for deployments.
+  * Protection rules (e.g., wait timers, approvals).
+
+Store environment-specific secrets (if needed):
+
+* `AZURE_SUBSCRIPTION_ID`
+* `AZURE_TENANT_ID`
+* `AZURE_CLIENT_ID` (for SP)
+* Any app config that isn’t in Key Vault.
+
+---
+
+### 6.3. Infrastructure Deployment Pipeline
+
+Create `.github/workflows/infra-deploy.yml`:
+
+**Trigger:**
+
+* `push` to `main` and/or `develop`
+* Or on release tags (e.g., `v*`)
+
+**Steps (dev example):**
+
+1. Checkout code.
+2. Authenticate to Azure using OIDC.
+3. Run `az deployment group create` or `az deployment sub create` with `main.bicep` and `parameters/dev.json`.
+4. Publish deployment outputs (e.g., Function App name, APIM name) as workflow outputs or environment variables.
+
+For **prod**, use:
+
+* `on: workflow_dispatch` or tagged releases.
+* `environment: prod` with approvals.
+
+---
+
+### 6.4. Application Deployment Pipeline
+
+Create `.github/workflows/app-deploy.yml`:
+
+**Trigger:**
+
+* `push` to `develop` → deploy to `dev`.
+* `push` to `main` / release tag → deploy to `prod`.
+
+**Pipeline steps:**
+
+1. **Build API**
+
+   * Restore deps, build, run tests.
+2. **Deploy API to Azure**
+
+   * For Functions: `func azure functionapp publish` or `az functionapp deployment source config-zip`.
+   * For Web Apps: `az webapp deploy` or `az webapp config container set` for containers.
+3. **Build & deploy UI**
+
+   * Build static assets.
+   * Deploy to Azure Static Web Apps or Blob static site.
+4. **Update APIM (if code-first)**
+
+   * Use `az apim api import` or a Bicep deployment to update APIs/policies.
+
+Use **GitHub environments**:
+
+```yaml
+environment: dev  # or prod
+```
+
+to enforce approvals, especially for prod.
+
+---
+
+## 7. Post-Deployment – Operations & Monitoring
+
+### 7.1. Observability Setup
+
+From IaC, ensure:
+
+* Application Insights is linked to Function App / Web App.
+* APIM diagnostic logs are enabled (to Log Analytics).
+* SQL / Cosmos diagnostics as needed.
+
+Document in `docs/06-monitoring-and-alerting.md`:
+
+* Standard dashboards:
+
+  * API latency & failure rate
+  * Function/App exceptions
+  * Ingestion success vs failures
+* Standard alerts:
+
+  * 5xx errors threshold
+  * Dependency failures (SQL/Cosmos) threshold
+  * High CPU/DTU usage
+
+### 7.2. Runbooks & Support
+
+Create runbooks in `docs/runbooks/`:
+
+* **Deployment rollback**
+
+  * Revert to previous tag/commit
+  * Redeploy via GitHub Action “Re-run workflow with previous ref”
+* **Configuration changes**
+
+  * Change config in IaC / appsettings
+  * PR → merge → pipeline → deployment (no manual portal edits)
+* **Incident response**
+
+  * How to triage alerts
+  * How to capture logs/telemetry
+  * Escalation paths
+
+---
+
+## 8. Templates, Checklists & Standards
+
+### 8.1. Templates
+
+Provide ready-to-use templates in `templates/` or `docs/templates/`:
+
+* Issue templates (feature, bug, spike).
+* PR template (description, testing, risks).
+* ADR template.
+* Bicep/Terraform module templates.
+* GitHub Action workflow templates (CI, infra deploy, app deploy).
+
+### 8.2. Checklists
+
+Maintain checklists (one per phase) under `docs/checklists/`:
+
+1. **Discovery Checklist**
+
+   * Problem statement documented.
+   * Stakeholders identified.
+   * Success metrics defined.
+2. **Design Checklist**
+
+   * Architecture diagram reviewed.
+   * ADRs for key decisions.
+   * Security/non-functional requirements documented.
+3. **Build Checklist**
+
+   * Coding standards followed.
+   * Unit tests created.
+   * Config externalized.
+4. **Test Checklist**
+
+   * Test cases mapped to requirements.
+   * Integration tests passing.
+   * Performance tests (if required).
+5. **Release Checklist**
+
+   * Infra deployed via pipeline.
+   * Deployment dry-run in dev/test.
+   * GitHub environments & approvals configured.
+6. **Ops Checklist**
+
+   * Alerts configured.
+   * Runbooks in place.
+   * Handover to operations documented.
+
+---
+
+## 9. Example Delivery Flow (End-to-End)
+
+Putting it all together, a typical feature lifecycle looks like:
+
+1. **Discovery**
+
+   * PM/Architect logs a GitHub issue using feature template.
+   * Issue added to project board → “Discovery”.
+2. **Design**
+
+   * Architect creates ADR, updates diagrams.
+   * Issue moves to “Design”.
+3. **Build**
+
+   * Dev creates `feature/xyz` branch from `develop`.
+   * Code changes + tests committed.
+   * PR opened → CI runs → reviewers approve.
+4. **Merge & Dev Deployment**
+
+   * PR merges into `develop`.
+   * CI/CD pipelines deploy infra + app to `dev`.
+   * QA/testers validate in dev.
+5. **Release to Prod**
+
+   * Release branch or PR to `main`.
+   * CI runs again (build/tests).
+   * Infra & app deploy workflows target `prod` environment (with approvals).
+   * Release tagged (e.g., `v1.3.0`).
+6. **Operate**
+
+   * Monitoring dashboards & alerts active.
+   * Incidents handled via runbooks.
+   * Changes & fixes follow the same GitHub workflow.
+
+---
+
+If you’d like, I can next:
+
+* Turn this into a **repo-ready README + separate `docs/` structure**, or
+* Add **sample GitHub Actions YAMLs** for infra & app deployment specifically to Azure Functions + APIM + Static Web Apps.
+
+
+
 
 Below is a **fully fleshed-out, training-ready use case** with **design diagrams, architecture explanation, step-by-step implementation, and hands-on exercises**.
 You can deliver this as a workshop, onboarding module, or internal training curriculum for architects, engineers, and DevOps teams.
