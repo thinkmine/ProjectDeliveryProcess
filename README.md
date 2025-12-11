@@ -442,32 +442,550 @@ Maintain checklists (one per phase) under `docs/checklists/`:
 ## 9. Example Delivery Flow (End-to-End)
 
 Putting it all together, a typical feature lifecycle looks like:
+Below is an expanded, **real-world enterprise version** of the **Discovery → Design → Build → Merge & Dev Deployment → Release to Prod** lifecycle.
+This is written so you can drop it directly into your **Project Delivery Guide**, under `docs/01-introduction.md` or `docs/03-methodologies-and-standards.md`.
 
-1. **Discovery**
+Each phase includes:
 
-   * PM/Architect logs a GitHub issue using feature template.
-   * Issue added to project board → “Discovery”.
-2. **Design**
+* **Purpose**
+* **Inputs & Outputs**
+* **Roles involved**
+* **Process steps**
+* **Best practices**
+* **Checklists**
+* **GitHub & Azure deliverables**
 
-   * Architect creates ADR, updates diagrams.
-   * Issue moves to “Design”.
-3. **Build**
+---
 
-   * Dev creates `feature/xyz` branch from `develop`.
-   * Code changes + tests committed.
-   * PR opened → CI runs → reviewers approve.
-4. **Merge & Dev Deployment**
+# 🔍 **1. DISCOVERY PHASE**
 
-   * PR merges into `develop`.
-   * CI/CD pipelines deploy infra + app to `dev`.
-   * QA/testers validate in dev.
-5. **Release to Prod**
+*“What are we solving? Why does it matter?”*
 
-   * Release branch or PR to `main`.
-   * CI runs again (build/tests).
-   * Infra & app deploy workflows target `prod` environment (with approvals).
-   * Release tagged (e.g., `v1.3.0`).
-6. **Operate**
+## **Purpose**
+
+Understand the business problem, constraints, success criteria, and expected outcomes.
+This aligns stakeholders, identifies scope, and seeds architecture direction.
+
+## **Primary Goals**
+
+* Define the **problem statement**
+* Identify **stakeholders & owners**
+* Understand **business objectives & KPIs**
+* Document **high-level requirements**
+* Analyze **current-state systems**
+* Identify risks, assumptions, dependencies
+* Provide the first **delivery roadmap**
+
+## **Key Inputs**
+
+* Stakeholder interviews
+* Business strategy docs
+* Existing systems & architecture
+* Compliance & security requirements
+
+## **Key Outputs**
+
+* Discovery Summary
+* Requirements Backlog (GitHub Issues)
+* High-Level Architecture Candidate
+* Initial Scope + Constraints
+* High-Level Project Plan
+
+## **Roles**
+
+* Product Owner
+* Solution Architect
+* Business Analyst
+* Engineering Lead
+* Security/Compliance SME
+
+---
+
+## ✔ **Discovery Workflow (Step-by-Step)**
+
+1. **Kickoff session**
+
+   * Define vision, business outcomes, timeline, success criteria.
+
+2. **Gather functional requirements**
+
+   * Use GitHub Issues (`type:feature`, `phase:discovery`).
+
+3. **Gather non-functional requirements (NFRs)**
+   Examples:
+
+   * Security
+   * Availability
+   * Data residency
+   * Performance
+   * Cost
+
+4. **Document current-state pain points**
+
+   * Manual processes
+   * Lack of visibility
+   * Scalability issues
+   * Integration gaps
+
+5. **Identify systems & integration points**
+
+   * Legacy apps
+   * APIs
+   * Identity providers
+   * Databases
+
+6. **Create the high-level architecture**
+
+   * UI → APIM → Functions → SQL/Cosmos
+   * Include rough sizing
+
+7. **Create the initial delivery roadmap**
+
+   * Sprint 1 → Sprint N
+   * Build → Test → UAT → Launch
+
+8. **Convert findings into GitHub Issues & Epics**
+
+   * Epic = high-level feature
+   * Issues = tasks/sub-features
+
+---
+
+## ✔ **Discovery Checklist**
+
+* [ ] Business problem documented
+* [ ] Stakeholders identified
+* [ ] Functional & non-functional requirements collected
+* [ ] Constraints captured
+* [ ] Risks, assumptions documented
+* [ ] High-level architecture created
+* [ ] GitHub issues created for all major requirements
+* [ ] Project board created
+* [ ] Approval from sponsor
+
+---
+
+# 🏗 **2. DESIGN PHASE**
+
+*“How will we solve the problem?”*
+
+## **Purpose**
+
+Translate high-level requirements into a detailed, implementable architecture and delivery plan.
+
+## **Primary Goals**
+
+* Finalize architecture
+* Validate solution approach
+* Define APIs, data models, workflows
+* Create IaC modules
+* Prepare for development
+
+## **Key Inputs**
+
+* Discovery artifacts
+* Requirements backlog
+* Security/compliance constraints
+
+## **Key Outputs**
+
+* Detailed Architecture Package
+* Sequence Diagrams
+* Infrastructure Designs (Bicep)
+* API Contracts (OpenAPI)
+* Data Models (SQL/Cosmos)
+* GitHub project structure
+* Solution Delivery Plan
+
+## **Roles**
+
+* Solution Architect
+* Security Architect
+* Data Architect
+* Engineering Lead
+* DevOps Engineer
+
+---
+
+## ✔ **Design Workflow (Step-by-Step)**
+
+1. **System Architecture**
+
+   * Define all Azure resources
+   * Choose hosting model (Functions, App Service, AKS)
+   * Choose storage (SQL, Cosmos, Blob)
+   * Identity design (Entra ID, APIM JWT, Managed Identity)
+
+2. **API Design (OpenAPI)**
+
+   * Define endpoints (CRUD + ingestion)
+   * Define request/response schemas
+   * Error handling model
+
+3. **Data Model Design**
+
+   * SQL schema
+   * Cosmos container structure
+   * Indexing strategies
+   * Partitioning
+
+4. **Workflow & Sequence Diagrams**
+
+   * CRUD flow
+   * Ingestion pipeline
+   * CI/CD flow
+   * Authentication sequence
+
+5. **Infrastructure Modules**
+
+   * Break Bicep into modular structure
+   * Define param files for each environment
+
+6. **Security Controls**
+
+   * APIM rate limiting
+   * Managed identity access
+   * NSG/Firewall considerations
+   * Key Vault integration
+
+7. **Define GitHub Delivery Structure**
+
+   * Branching strategy
+   * Environments
+   * Deployment pipelines
+   * Approval gates
+
+---
+
+## ✔ **Design Checklist**
+
+* [ ] Architecture diagram completed
+* [ ] API contracts completed
+* [ ] Data models approved
+* [ ] Bicep modules ready
+* [ ] CI/CD architecture approved
+* [ ] Security reviewed
+* [ ] GitHub workflows drafted
+* [ ] Architecture Decision Records created
+* [ ] Design sign-off completed
+
+---
+
+# 🔨 **3. BUILD PHASE**
+
+*“Build the solution according to standards and automation.”*
+
+## **Purpose**
+
+Develop the application code, infrastructure templates, pipelines, and documentation.
+
+## **Primary Goals**
+
+* Code implementation of APIs & UI
+* Create Infrastructure-as-Code
+* Automated CI/CD via GitHub Actions
+* Unit & integration tests
+* Complete documentation
+
+## **Key Inputs**
+
+* Approved design
+* Architecture docs
+* Bicep templates
+* API contracts
+
+## **Key Outputs**
+
+* Function App code
+* UI code
+* Bicep IaC
+* GitHub Actions pipelines
+* Unit tests
+* Integration tests
+* Developer documentation
+
+## **Roles**
+
+* Developers
+* DevOps Engineers
+* QA Engineers
+* Cloud Engineers
+
+---
+
+## ✔ **Build Workflow (Step-by-Step)**
+
+1. **Develop Azure Functions**
+
+   * Implement CRUD
+   * Implement ingestion
+   * Use configuration/environment variables
+
+2. **Develop Bootstrap UI**
+
+   * JSON-driven UI
+   * Dynamic forms/tables
+   * Build & minify
+
+3. **Implement SQL Code**
+
+   * Tables
+   * Views
+   * Procs
+   * Index optimizations
+
+4. **Implement Cosmos Containers**
+
+   * Define partition key
+   * Define indexing policy
+
+5. **Write Unit Tests**
+
+   * Function logic
+   * Repository layers
+
+6. **Write Integration Tests**
+
+   * API tests
+   * SQL/Cosmos tests
+
+7. **Implement GitHub Actions**
+
+   * CI workflow
+   * Infra deployment workflow
+   * Function App deployment workflow
+   * Static Web App deployment workflow
+
+8. **Create environment variables & secrets**
+
+   * Azure OIDC credentials
+   * SQL connection strings
+   * Cosmos keys
+
+9. **Developer Documentation**
+
+   * README updates
+   * Code comments
+   * ADR updates
+
+---
+
+## ✔ **Build Checklist**
+
+* [ ] Code meets standards
+* [ ] All tests passed
+* [ ] Pipelines defined
+* [ ] All docs updated
+* [ ] No unapproved secrets
+* [ ] Code scanning passed (CodeQL/Dependabot)
+
+---
+
+# 🔀 **4. MERGE & DEV DEPLOYMENT PHASE**
+
+*“Merge changes through PR and automatically deploy to dev.”*
+
+## **Purpose**
+
+Validate changes end-to-end in a dev environment using automated CI/CD.
+
+## **Primary Goals**
+
+* Peer-reviewed code merges
+* Automatically deploy to dev
+* Automated smoke tests
+* Enable QA testing
+
+## **Key Inputs**
+
+* Feature branch
+* Build artifacts
+* IaC modules
+
+## **Key Outputs**
+
+* Updated dev environment
+* Deployment logs
+* Release notes
+* QA sign-off (optional)
+
+## **Roles**
+
+* Developer
+* Reviewer/Architect
+* DevOps Engineer
+* QA Engineer
+
+---
+
+## ✔ **Merge & Dev Deploy Workflow (Step-by-Step)**
+
+1. **Developer opens Pull Request**
+
+   * PR template auto-populates
+   * Links issues (Closes #123)
+   * Code scanning starts
+
+2. **CI Pipeline Runs Automatically**
+
+   * Build code
+   * Unit tests
+   * Linting
+   * Security scan
+   * Bicep validation (“what-if”)
+
+3. **Peer Review**
+
+   * Reviewers check architecture, code quality
+   * Comments resolved
+
+4. **Merge into `develop`**
+
+   * Automatically triggers deployment pipeline
+
+5. **Infrastructure Deploys to Dev**
+
+   * Bicep deploy
+   * APIM import/updates
+   * Key Vault sync
+   * Monitor diagnostic settings
+
+6. **Application Deploys to Dev**
+
+   * Function App deployment
+   * Static UI deployment
+   * Database migrations (if applicable)
+
+7. **Post-Deployment Smoke Tests**
+
+   * API reaches APIM
+   * UI loads
+   * SQL/Cosmos connectivity
+   * Ingestion works
+
+8. **Update release notes**
+
+   * What changed
+   * What needs testing
+
+---
+
+## ✔ **Merge & Dev Deployment Checklist**
+
+* [ ] PR approved by required reviewers
+* [ ] CI success
+* [ ] Dev deployment success
+* [ ] Smoke tests passed
+* [ ] QA notified
+* [ ] Issues linked & moved on project board
+
+---
+
+# 🚀 **5. RELEASE TO PROD PHASE**
+
+*“Promote tested, approved code to production with safeguards.”*
+
+## **Purpose**
+
+Safely deploy stable functionality to production using controlled approvals and GitOps.
+
+## **Primary Goals**
+
+* Production stability
+* Zero-touch automated deployments
+* Observability & rollback readiness
+
+## **Key Inputs**
+
+* Successful dev deployment
+* QA/UAT approval
+* Release notes
+
+## **Key Outputs**
+
+* Production deployment
+* Deployment documentation
+* Post-deployment validation
+* Monitoring confirmation
+
+## **Roles**
+
+* Engineering Lead
+* DevOps
+* Security
+* Product Owner
+* Support/Operations
+
+---
+
+## ✔ **Release to Prod Workflow (Step-by-Step)**
+
+1. **Create Release PR or Tag**
+
+   * PR from `develop → main`
+   * Or create GitHub Release: `v1.3.0`
+
+2. **CI Runs Again**
+
+   * Build
+   * Tests
+   * Static analysis
+   * Bicep validation
+
+3. **Approval Gate Triggered**
+
+   * GitHub environment: `prod`
+   * Requires:
+
+     * Approvers: Architects, DevOps, Product Owner
+     * Optional wait timer
+     * Change ticket link
+
+4. **Infrastructure Deployment to Prod**
+
+   * Execute Bicep with `prod.json`
+   * APIM configuration
+   * DNS changes if needed
+
+5. **Application Deployment**
+
+   * Function App slot swap (blue-green)
+   * Static UI upload
+   * SQL migrations (pre-approved)
+
+6. **Post-Deployment Verification**
+
+   * Health check
+   * API operational via APIM
+   * Logging & telemetry active
+   * No SQL deadlocks / Cosmos throttling
+
+7. **Finalize Deployment**
+
+   * Close release milestone
+   * Tag code
+   * Update docs/runbooks
+
+8. **Handover to Operations**
+
+   * Notify support teams
+   * Provide dashboards & alerts
+   * QA final confirmation
+
+---
+
+## ✔ **Release to Prod Checklist**
+
+* [ ] All UAT tests passed
+* [ ] Prod approval gate satisfied
+* [ ] IA & code security validated
+* [ ] Prod deploy succeeded
+* [ ] Telemetry validated
+* [ ] Rollback plan available
+* [ ] Release notes published
+* [ ] Stakeholders notified
+
+---
 
    * Monitoring dashboards & alerts active.
    * Incidents handled via runbooks.
